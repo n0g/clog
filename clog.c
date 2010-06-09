@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <time.h>
-//FastCGI Library http://www.fastcgi.com/devkit/doc/fcgi-devel-kit.htm#S3.1
+/* FastCGI Library http://www.fastcgi.com/devkit/doc/fcgi-devel-kit.htm#S3.1 */
 #include <fcgi_stdio.h>
 
 #include "config.h"
@@ -26,17 +26,17 @@ static int
 get_dir(struct dirent const *entry) {
 	struct stat buf;
 
-	//eleminiate the . and .. directories from the list
+	/* eleminiate the . and .. directories from the list */
 	if ((strcmp(entry->d_name, ".") == 0) ||
 		(strcmp(entry->d_name, "..") == 0)){
 		return 0;
 	}
 	else{
-		//get file stats
+		/* get file stats */
 		if(stat(entry->d_name,&buf)!=0)
 			perror(NULL);
 
-		//check if file is a directory
+		/* check if file is a directory */
 		if(S_ISDIR(buf.st_mode))
 			return -1;
 	}
@@ -45,10 +45,11 @@ get_dir(struct dirent const *entry) {
 
 static int
 menu(char* dir,char* lastdir) {
+	int n, count;
 	struct dirent **files;
 	char *firstpart,*lastpart;
 
-	//extract the first directory and save the rest of the path
+	/* extract the first directory and save the rest of the path */
 	firstpart = strtok(dir,"/");
 	lastpart = strtok(NULL,"\0");
 
@@ -69,10 +70,9 @@ menu(char* dir,char* lastdir) {
 	if(chdir(firstpart)==-1) 
 		perror(NULL);
 		
-	int n=scandir(".",&files,get_dir,alphasort);	
+	n=scandir(".",&files,get_dir,alphasort);	
 	if(n>0){ 
 		fputs("<ul>\n",stdout);
-		int count;
 		for(count=0;count<n;count++){
 			fputs("\t<li><a href=\"",stdout);
 			fputs(mainfile,stdout);
@@ -104,11 +104,11 @@ static int
 mtimesort(const struct dirent **a,const struct dirent **b) {
 	struct stat filbuf1,filbuf2;
 
-	//get stats for both files
+	/* get stats for both files */
 	stat((*a)->d_name,&filbuf1);
 	stat((*b)->d_name,&filbuf2);
 
-	//compare modification time
+	/* compare modification time */
 	if(filbuf1.st_mtime<filbuf2.st_mtime)
 		return -1;
 	if(filbuf1.st_mtime==filbuf2.st_mtime)
@@ -122,13 +122,13 @@ get_txt(struct dirent const *entry) {
 	struct stat buf;
 	char *end;
 
-	//get stats for the file
+	/* get stats for the file */
         if(stat(entry->d_name,&buf))
         	perror(NULL);
 
-	//check if file is a regular file and if it has and ending (.*)
+	/* check if file is a regular file and if it has and ending (.*) */
         if(S_ISREG(buf.st_mode) && (end=strrchr(entry->d_name,'.'))!=NULL){
-		//check if the ending is .txt (configure via config.h?)
+		/* check if the ending is .txt (configure via config.h?) */
 		if(!strcmp(end,".txt"))
                        	return -1;
 	}
@@ -138,33 +138,32 @@ get_txt(struct dirent const *entry) {
 
 static int 
 read_entry(char *path) {
-	FILE* entry;
+	FILE *entry;
 	struct stat entrybuf;
-	char* entry_title;
+	char *entry_title, *titlesuffix, foo;
 	
 	size_t pathlen=strlen(path)+1;
 	entry_title=(char*)malloc(pathlen);
 	memcpy(entry_title,path,pathlen);
-	char* titlesuffix=strrchr(entry_title,'.');
+	titlesuffix=strrchr(entry_title,'.');
 	*titlesuffix='\0';
 
-	//print title
+	/* print title */
 	fputs("<div class=\"texteintrag\">\r\n<h3>",stdout);
 	fputs(entry_title,stdout);
 	fputs("</h3>\r\n",stdout);
 	free(entry_title);
 
-	//print modification time
+	/* print modification time */
 	if(stat(path,&entrybuf))
 		perror(NULL);
 	fputs("<div class=\"date\">",stdout);
 	fputs(ctime(&entrybuf.st_mtime),stdout);
 	fputs("</div>\r\n",stdout);
 
-	//print content
+	/* print content */
 	if((entry = fopen(path,"r"))!=NULL){
 		fputs("<p>",stdout);
-		char foo;
 		while((foo=fgetc(entry))!=EOF)
 			fputc(foo,stdout);	
 		fputs("</p>\r\n",stdout);
@@ -181,20 +180,21 @@ read_entry(char *path) {
 static int 
 read_entries(char* path) {
 	struct dirent **files;
+	int num;
 
 	if(path==NULL)
 		path="/";
 		
 	fputs("<div class=\"textblock\">\r\n<h2>",stdout);
-	//print path as page title
+	/* print path as page title */
 	fputs(path,stdout);
 	fputs("</h2>\r\n",stdout);
 
-	//get all regular files that end with .txt and sort them by
-	//modification time
-	int num = scandir(".",&files,get_txt,mtimesort);
+	/* get all regular files that end with .txt and sort them by */
+	/* modification time */
+	num = scandir(".",&files,get_txt,mtimesort);
 	while(num--){
-		//read each file
+		/* read each file */
 		read_entry(files[num]->d_name);
 	}
 	fputs("</div>\r\n",stdout);
@@ -224,28 +224,27 @@ print_footer() {
 }
 
 int main(void) {
-	//FastCGI
-	int count = 0;
+	/* FastCGI */
         while(FCGI_Accept() >= 0) {
 		char *query_str,*dir,*menu_path;
 	
-		//send Content-type, so that the browser displays something
+		/* send Content-type, so that the browser displays something */
 		fputs("Content-Type: ",stdout);
 		fputs(content_type,stdout);
 		fputs("\r\n\r\n",stdout);
 
-		//read the query string from the url to get the get parameters
+		/* read the query string from the url to get the get parameters */
 		query_str = getenv("QUERY_STRING");
 
-		//get the directory that should be read
+		/* get the directory that should be read */
 		strtok(query_str,"=");
 		dir = strtok(NULL,"="); 
 
-		//change dir to root_dir
+		/* change dir to root_dir */
 		if(chdir(root_dir)==-1)
 			perror(NULL);
 
-		//show menu
+		/* show menu */
 		if(dir!=NULL){
 			size_t len = strlen (dir);
 			menu_path = (char *) malloc (len + 3);
@@ -264,7 +263,7 @@ int main(void) {
 		menu(menu_path,NULL);
 		fputs("</div>\r\n",stdout);
 
-		//show all entries in the chosen directory
+		/* show all entries in the chosen directory */
 		read_entries(dir);
 
 		print_footer();
