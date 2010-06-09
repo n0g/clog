@@ -1,0 +1,11 @@
+At first you have to configure the Parameters in config.h
+
+The Project depends on libfcgi, on Debian it is sufficient if
+you install libfcgi-dev
+
+To compile clog it should suffice to run:
+	gcc -lfcgi clog.c
+
+Move the resulting a.out file to your webdirectory.
+At last the webserver has to be configured to run the file
+via cgi when called.

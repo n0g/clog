@@ -1,0 +1,83 @@
+html {
+background-color: #ccc;
+}
+body {
+background-color : #ccc;
+color : #000;
+font-family : sans-serif;
+}
+pre {
+font-size: 10pt;
+}
+h1{
+color : #003366;
+font-family: serif;
+font-size: 50pt;
+margin-left:0;
+margin-top:0;
+margin-right: 40px;
+float: left;
+}
+h2{
+color:#fff;
+font-size:40pt;
+font-style: italic;
+direction:rtl;
+margin-bottom: -5px;
+}
+.textblock {
+width: 80%;
+margin-left: 10%;
+margin-right: 10%;
+}
+.texteintrag {
+background-color: #c0c0c0;
+border-color : #003366;
+border-width: 1px;
+border-style: dashed;
+padding-left: 10px;
+margin-bottom: 50px;
+}
+.menu {
+width: 100%;
+margin-top: 30px;
+}
+.menu ul li {
+list-style : none;
+float: left;
+margin-right: 10px;
+}
+.menu ul ul li{
+margin-top:20px;
+}
+.menu ul ul ul li{
+margin-top:40px;
+}
+.menu a {
+	text-decoration: none;
+	color: #003366;
+	padding: 5px;
+	border-color: #003366;
+	border-width: 1px;
+	border-style: solid;
+}
+.menu a:hover{
+	background-color: #003366;
+	color: #ccc;
+	padding: 5px;
+}
+h3 {
+font-size : 17pt;
+color : #003366;
+font-weight : bold;
+margin-top: -23px;
+}
+.date {
+font-family : monospace;
+font-size : 8pt;
+color : #003366;
+margin-top: -15px;
+}
+img {
+border : none;
+}

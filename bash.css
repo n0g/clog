@@ -1,0 +1,127 @@
+html {
+background-color: #444;
+}
+body {
+background-color : #444;
+background-position: right bottom;
+background-repeat: no-repeat;
+background-attachment: fixed;
+color : #ddd;
+font-family : sans-serif;
+height : 100%;
+width : 90%;
+}
+pre {
+font-size: 10pt;
+}
+.stats {
+font-family : monospace;
+color :#666; 
+font-size : 10pt;
+}
+h1{
+color : #ffbb00;
+font-size: 20pt;
+margin-bottom : -20px;
+}
+h2{
+color:#666;
+font-size:30pt;
+direction:rtl;
+margin-right:14px;
+margin-bottom:-25px;
+
+}
+.textblock {
+margin-left : 200px;
+margin-bottom : 100px;
+margin-top:0px;
+}
+.comment {
+margin-left: 100px;
+}
+.cmtdate {
+margin-top: -20px;
+margin-bottom: -10px;
+font-family:monospace;
+color:#444;
+font-size:8pt;
+}
+.cmtlink a {
+color:#444;
+text-decoration:none;
+font-weight:bold;
+}
+.cmtlink {
+text-align:right;
+margin-bottom:-15px;
+}
+h4{
+color:#444;
+}
+.texteintrag {
+background-color : #666;
+padding : 10px;
+margin : 15px;
+}
+.menu {
+position : absolute;
+top : 100px;
+left : 50px;
+}
+.buttonparade {
+direction : rtl;
+position : relative;
+bottom : -50px;
+}
+.menu ul {
+list-style : none;
+margin : 0;
+padding : 5px 5px 5px 1.5em;
+}
+.menu a {
+color : #aaa;
+padding : 5px;
+text-decoration : none;
+}
+.menu a:hover {
+background-color : #666;
+text-decoration : none;
+padding : 5px;
+}
+.menu li {
+list-style : none;
+padding : 6px;
+}
+h3 {
+font-size : 17pt;
+color : #444;
+font-weight : bold;
+position : relative;
+margin-top:0px;
+margin-bottom:0px;
+left : -12px;
+top : -15px;
+}
+.date {
+font-family : monospace;
+font-size : 8pt;
+color : #444;
+position : relative;
+top : -15px;
+left : -12px;
+}
+img {
+border : none;
+}
+.spruch{
+color: #ffbb00;
+font-style:italic; 
+}
+table .in th, table td span.in {
+                                color: #00cc00;
+                        }
+table .out th, table td span.out {
+                                color: #0000ff;
+}
+
