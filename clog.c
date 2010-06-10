@@ -22,7 +22,7 @@
 
 #include "config.h"
 
-static int menu(char *dir, char *lastdir);
+static int menu(char *dir);
 static int isdir(const struct dirent *entry);
 static int istxt(const struct dirent *entry);
 static int mtimecmp(const struct dirent **a, const struct dirent **b);
@@ -35,7 +35,7 @@ static void print_footer();
 int main(void) {
 	/* FastCGI */
         while(FCGI_Accept() >= 0) {
-		char *query_str, *dir, *menu_path;
+		char *query_str, *dir;
 	
 		/* send Content-type, so that the browser displays something */
 		fputs("Content-Type: ",stdout);
@@ -54,31 +54,16 @@ int main(void) {
 			perror("Couldn't change to root directory");
 		}
 
-		/* show menu */
-		if(dir != NULL){
-			size_t len = strlen(dir);
-			menu_path = (char *) malloc (len + 3);
-			menu_path[0] = '.';
-			menu_path[1] = '/';
-			memcpy (menu_path+2, dir, len + 1);
-		}
-		else{
-			menu_path=(char*)malloc(2);
-			menu_path[0]='.';
-			menu_path[1]='\0';
-		}
 		print_header();
 
 		fputs("<div class=\"menu\">\r\n",stdout);
-		menu(menu_path,NULL);
+		menu(dir);
 		fputs("</div>\r\n",stdout);
 
 		/* show all entries in the chosen directory */
 		read_entries(dir);
 
 		print_footer();
-
-		free(menu_path);
 	}
 	return 0;
 }
@@ -92,74 +77,53 @@ isdir(struct dirent const *entry) {
 		(strcmp(entry->d_name, "..") == 0)){
 		return 0;
 	}
-	else{
-		/* get file stats */
-		if(stat(entry->d_name,&buf)!=0)
-			perror("couldn't get file stats");
-
-		/* check if file is a directory */
-		if(S_ISDIR(buf.st_mode))
-			return -1;
+	/* get file stats */
+	if(stat(entry->d_name,&buf)!=0) {
+		perror("couldn't get file stats");
+	}
+	/* check if file is a directory */
+	if(S_ISDIR(buf.st_mode)) {
+		return -1;
 	}
 	return 0;
 }
 
 static int
-menu(char* dir,char* lastdir) {
-	int n, count;
-	struct dirent **files;
-	char *firstpart,*lastpart;
+menu(char* dir) {
+	struct dirent **directories;
+	char *next_dir;
+	int num_dir, count;
 
-	/* extract the first directory and save the rest of the path */
-	firstpart = strtok(dir,"/");
-	lastpart = strtok(NULL,"\0");
+	/* check if directory path has value and initialize path to next directory */
+	if(dir != NULL) {
+		next_dir = strchr(dir,'/');
+		if(next_dir != NULL)
+			*next_dir = '\0';
+	}
 
-	if(lastdir!=NULL && strcmp(lastdir,".")!=0){
-		size_t lastdirlen=strlen(lastdir);
-		size_t firstpartlen=strlen(firstpart);
-		char* buffer=(char*)malloc(firstpartlen+lastdirlen+2);
-		memcpy(buffer,lastdir,lastdirlen);
-		memcpy(buffer+lastdirlen,"/",1);
-		memcpy(buffer+lastdirlen+1,firstpart,firstpartlen);
-		lastdir=buffer;
-	}
-	else if(strcmp(firstpart,".")!=0){
-		size_t firstpartlen=strlen(firstpart)+1;
-		lastdir=(char*)malloc(firstpartlen);
-		memcpy(lastdir,firstpart,firstpartlen);
-	}
-	if(chdir(firstpart)==-1) {
-		perror("couldn't change directory");
-	}
-		
-	n=scandir(".",&files,isdir,alphasort);	
-	if(n>0) { 
+	/* list all directories in this directory */
+	num_dir = scandir(".",&directories,isdir,alphasort);	
+	if(num_dir > 0) {
 		fputs("<ul>\n",stdout);
-		for(count=0;count<n;count++){
+		for(count = 0; count < num_dir;count++) {
 			fputs("\t<li><a href=\"",stdout);
 			fputs(mainfile,stdout);
-
-			if(lastdir!=NULL){
-				fputs(lastdir,stdout);
-				fputs("/",stdout);
-			}
-
-			fputs(files[count]->d_name,stdout);
+			fputs(directories[count]->d_name,stdout);
 			fputs("\">",stdout);
-			fputs(files[count]->d_name,stdout);
+			fputs(directories[count]->d_name,stdout);
 			fputs("</a></li>\n",stdout);
-
-			if(lastpart !=NULL &&
-				strstr(lastpart,files[count]->d_name)==lastpart) {
-				menu(lastpart,lastdir);
+		
+			/* list directories in subdirectory */
+			if(dir != NULL && strcmp(dir,directories[count]->d_name) == 0) {
+				chdir(dir);
+				if(next_dir != NULL) {
+					next_dir++;
+				}
+				menu(next_dir);
 			}
 		}
 		fputs("</ul>\n",stdout);
 	}
-
-	free(files);
-	free(lastdir);
-
 	return 0;
 }
 
@@ -222,6 +186,7 @@ read_entry(const char *path) {
 	/* print content */
 	if((entry = fopen(path,"r"))!=NULL){
 		fputs("<p>",stdout);
+		/* TODO: use fread to read file */
 		while((foo=fgetc(entry))!=EOF) {
 			fputc(foo,stdout);	
 		}
