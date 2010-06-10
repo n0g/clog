@@ -1,6 +1,6 @@
 CC = gcc
 LDFLAGS = -lfcgi
-CFLAGS = -ansi -pedantic -Wall -Werror
+CFLAGS = -g -ansi -pedantic -Wall -Werror
 
 all: clog
 

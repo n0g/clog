@@ -22,8 +22,69 @@
 
 #include "config.h"
 
+static int menu(char *dir, char *lastdir);
+static int isdir(const struct dirent *entry);
+static int istxt(const struct dirent *entry);
+static int mtimecmp(const struct dirent **a, const struct dirent **b);
+static int read_entry(const char *path);
+static int read_entries(char *path);
+static void print_header();
+static void print_footer(); 
+
+
+int main(void) {
+	/* FastCGI */
+        while(FCGI_Accept() >= 0) {
+		char *query_str, *dir, *menu_path;
+	
+		/* send Content-type, so that the browser displays something */
+		fputs("Content-Type: ",stdout);
+		fputs(content_type,stdout);
+		fputs("\r\n\r\n",stdout);
+
+		/* read the query string from the url to get the get parameters */
+		query_str = getenv("QUERY_STRING");
+
+		/* get the directory that should be read */
+		strtok(query_str,"=");
+		dir = strtok(NULL,"="); 
+
+		/* change dir to root_dir */
+		if(chdir(root_dir) == -1) {
+			perror("Couldn't change to root directory");
+		}
+
+		/* show menu */
+		if(dir != NULL){
+			size_t len = strlen(dir);
+			menu_path = (char *) malloc (len + 3);
+			menu_path[0] = '.';
+			menu_path[1] = '/';
+			memcpy (menu_path+2, dir, len + 1);
+		}
+		else{
+			menu_path=(char*)malloc(2);
+			menu_path[0]='.';
+			menu_path[1]='\0';
+		}
+		print_header();
+
+		fputs("<div class=\"menu\">\r\n",stdout);
+		menu(menu_path,NULL);
+		fputs("</div>\r\n",stdout);
+
+		/* show all entries in the chosen directory */
+		read_entries(dir);
+
+		print_footer();
+
+		free(menu_path);
+	}
+	return 0;
+}
+
 static int 
-get_dir(struct dirent const *entry) {
+isdir(struct dirent const *entry) {
 	struct stat buf;
 
 	/* eleminiate the . and .. directories from the list */
@@ -34,7 +95,7 @@ get_dir(struct dirent const *entry) {
 	else{
 		/* get file stats */
 		if(stat(entry->d_name,&buf)!=0)
-			perror(NULL);
+			perror("couldn't get file stats");
 
 		/* check if file is a directory */
 		if(S_ISDIR(buf.st_mode))
@@ -67,11 +128,12 @@ menu(char* dir,char* lastdir) {
 		lastdir=(char*)malloc(firstpartlen);
 		memcpy(lastdir,firstpart,firstpartlen);
 	}
-	if(chdir(firstpart)==-1) 
-		perror(NULL);
+	if(chdir(firstpart)==-1) {
+		perror("couldn't change directory");
+	}
 		
-	n=scandir(".",&files,get_dir,alphasort);	
-	if(n>0){ 
+	n=scandir(".",&files,isdir,alphasort);	
+	if(n>0) { 
 		fputs("<ul>\n",stdout);
 		for(count=0;count<n;count++){
 			fputs("\t<li><a href=\"",stdout);
@@ -88,8 +150,9 @@ menu(char* dir,char* lastdir) {
 			fputs("</a></li>\n",stdout);
 
 			if(lastpart !=NULL &&
-				strstr(lastpart,files[count]->d_name)==lastpart)
+				strstr(lastpart,files[count]->d_name)==lastpart) {
 				menu(lastpart,lastdir);
+			}
 		}
 		fputs("</ul>\n",stdout);
 	}
@@ -101,80 +164,74 @@ menu(char* dir,char* lastdir) {
 }
 
 static int 
-mtimesort(const struct dirent **a,const struct dirent **b) {
-	struct stat filbuf1,filbuf2;
+mtimecmp(const struct dirent **file1,const struct dirent **file2) {
+	struct stat file1_stat,file2_stat;
 
 	/* get stats for both files */
-	stat((*a)->d_name,&filbuf1);
-	stat((*b)->d_name,&filbuf2);
+	stat((*file1)->d_name,&file1_stat);
+	stat((*file2)->d_name,&file2_stat);
 
 	/* compare modification time */
-	if(filbuf1.st_mtime<filbuf2.st_mtime)
-		return -1;
-	if(filbuf1.st_mtime==filbuf2.st_mtime)
-		return 0;
-	else
-		return 1;
+	return file1_stat.st_mtime-file2_stat.st_mtime;
 }
 
 static int 
-get_txt(struct dirent const *entry) {
+istxt(struct dirent const *entry) {
 	struct stat buf;
 	char *end;
 
 	/* get stats for the file */
-        if(stat(entry->d_name,&buf))
-        	perror(NULL);
+        if(stat(entry->d_name,&buf)) {
+        	perror("couldn't get stats for file");
+	}
 
 	/* check if file is a regular file and if it has and ending (.*) */
         if(S_ISREG(buf.st_mode) && (end=strrchr(entry->d_name,'.'))!=NULL){
 		/* check if the ending is .txt (configure via config.h?) */
-		if(!strcmp(end,".txt"))
+		if(!strcmp(end,".txt")) {
                        	return -1;
+		}
 	}
 
         return 0;
 }
 
 static int 
-read_entry(char *path) {
+read_entry(const char *path) {
 	FILE *entry;
-	struct stat entrybuf;
-	char *entry_title, *titlesuffix, foo;
+	struct stat entry_stat;
+	char *titlesuffix, foo;
 	
-	size_t pathlen=strlen(path)+1;
-	entry_title=(char*)malloc(pathlen);
-	memcpy(entry_title,path,pathlen);
-	titlesuffix=strrchr(entry_title,'.');
+	titlesuffix=strrchr(path,'.');
 	*titlesuffix='\0';
 
 	/* print title */
 	fputs("<div class=\"texteintrag\">\r\n<h3>",stdout);
-	fputs(entry_title,stdout);
+	fputs(path,stdout);
 	fputs("</h3>\r\n",stdout);
-	free(entry_title);
+	*titlesuffix='.';
 
 	/* print modification time */
-	if(stat(path,&entrybuf))
-		perror(NULL);
+	if(stat(path,&entry_stat)) {
+		perror("couldn't get stats for file");
+	}
 	fputs("<div class=\"date\">",stdout);
-	fputs(ctime(&entrybuf.st_mtime),stdout);
+	fputs(ctime(&entry_stat.st_mtime),stdout);
 	fputs("</div>\r\n",stdout);
 
 	/* print content */
 	if((entry = fopen(path,"r"))!=NULL){
 		fputs("<p>",stdout);
-		while((foo=fgetc(entry))!=EOF)
+		while((foo=fgetc(entry))!=EOF) {
 			fputc(foo,stdout);	
+		}
 		fputs("</p>\r\n",stdout);
-		
-		fclose(entry);
 		fputs("</div>\r\n",stdout);
-	}	
-	else
-		return 0;
 
-	return -1;
+		fclose(entry);
+		return -1;
+	}	
+	return 0;
 }
 
 static int 
@@ -182,8 +239,9 @@ read_entries(char* path) {
 	struct dirent **files;
 	int num;
 
-	if(path==NULL)
+	if(path == NULL) {
 		path="/";
+	}
 		
 	fputs("<div class=\"textblock\">\r\n<h2>",stdout);
 	/* print path as page title */
@@ -192,7 +250,10 @@ read_entries(char* path) {
 
 	/* get all regular files that end with .txt and sort them by */
 	/* modification time */
-	num = scandir(".",&files,get_txt,mtimesort);
+	if((num = scandir(".",&files,istxt,mtimecmp)) == -1) {
+		perror("scandir failed");
+		return -1;
+	}
 	while(num--){
 		/* read each file */
 		read_entry(files[num]->d_name);
@@ -221,54 +282,4 @@ print_header() {
 static void 
 print_footer() {
 	fputs("</body>\r\n</html>\r\n",stdout);
-}
-
-int main(void) {
-	/* FastCGI */
-        while(FCGI_Accept() >= 0) {
-		char *query_str,*dir,*menu_path;
-	
-		/* send Content-type, so that the browser displays something */
-		fputs("Content-Type: ",stdout);
-		fputs(content_type,stdout);
-		fputs("\r\n\r\n",stdout);
-
-		/* read the query string from the url to get the get parameters */
-		query_str = getenv("QUERY_STRING");
-
-		/* get the directory that should be read */
-		strtok(query_str,"=");
-		dir = strtok(NULL,"="); 
-
-		/* change dir to root_dir */
-		if(chdir(root_dir)==-1)
-			perror(NULL);
-
-		/* show menu */
-		if(dir!=NULL){
-			size_t len = strlen (dir);
-			menu_path = (char *) malloc (len + 3);
-			menu_path[0] = '.';
-			menu_path[1] = '/';
-			memcpy (menu_path+2, dir, len + 1);
-		}
-		else{
-			menu_path=(char*)malloc(2);
-			menu_path[0]='.';
-			menu_path[1]='\0';
-		}
-		print_header();
-
-		fputs("<div class=\"menu\">\r\n",stdout);
-		menu(menu_path,NULL);
-		fputs("</div>\r\n",stdout);
-
-		/* show all entries in the chosen directory */
-		read_entries(dir);
-
-		print_footer();
-
-		free(menu_path);
-	}
-	return 0;
 }
