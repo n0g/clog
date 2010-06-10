@@ -7,6 +7,7 @@
  */
 
 #define _BSD_SOURCE
+#define BUFSIZ 1024
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -164,7 +165,7 @@ static int
 read_entry(const char *path) {
 	FILE *entry;
 	struct stat entry_stat;
-	char *titlesuffix, foo;
+	char *titlesuffix, *content;
 	
 	titlesuffix=strrchr(path,'.');
 	*titlesuffix='\0';
@@ -184,16 +185,17 @@ read_entry(const char *path) {
 	fputs("</div>\r\n",stdout);
 
 	/* print content */
+	content = calloc(entry_stat.st_size+1,1);
 	if((entry = fopen(path,"r"))!=NULL){
 		fputs("<p>",stdout);
-		/* TODO: use fread to read file */
-		while((foo=fgetc(entry))!=EOF) {
-			fputc(foo,stdout);	
-		}
+		fread(content,1,entry_stat.st_size,entry);
+		/* TODO: convert markdown text here */
+		fputs(content,stdout);	
 		fputs("</p>\r\n",stdout);
 		fputs("</div>\r\n",stdout);
 
 		fclose(entry);
+		free(content);
 		return -1;
 	}	
 	return 0;
