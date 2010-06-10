@@ -7,7 +7,6 @@
  */
 
 #define _BSD_SOURCE
-#define BUFSIZ 1024
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,23 +17,12 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <time.h>
-/* FastCGI Library http://www.fastcgi.com/devkit/doc/fcgi-devel-kit.htm#S3.1 */
 #include <fcgi_stdio.h>
 
+#include "clog.h"
 #include "config.h"
 
-static int menu(char *dir);
-static int isdir(const struct dirent *entry);
-static int istxt(const struct dirent *entry);
-static int mtimecmp(const struct dirent **a, const struct dirent **b);
-static int read_entry(const char *path);
-static int read_entries(char *path);
-static void print_header();
-static void print_footer(); 
-
-
 int main(void) {
-	/* FastCGI */
         while(FCGI_Accept() >= 0) {
 		char *query_str, *dir;
 	
