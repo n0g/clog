@@ -1,3 +1,8 @@
 Markdown Syntax
 sample htaccess file (rewrite rules, cgi configuration)
+more filehandlers! (c files, torrent files, etc)
 Rss feeds
+
+BUG
+	Menu, sublinks don't work because the URL is relativ
+	image handler should agree to a size
