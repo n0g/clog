@@ -17,13 +17,14 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <time.h>
-#include <fcgi_stdio.h>
 
 #include "clog.h"
 #include "config.h"
 
-int main(void) {
-        while(FCGI_Accept() >= 0) {
+int
+main(int argc, char *argv[]) {
+/*        while(FCGI_Accept() >= 0) { */
+	while(1) {
 		char *query_str, *dir;
 	
 		/* send Content-type, so that the browser displays something */
@@ -53,26 +54,7 @@ int main(void) {
 		read_entries(dir);
 
 		print_footer();
-	}
-	return 0;
-}
-
-static int 
-isdir(struct dirent const *entry) {
-	struct stat buf;
-
-	/* eleminiate the . and .. directories from the list */
-	if ((strcmp(entry->d_name, ".") == 0) ||
-		(strcmp(entry->d_name, "..") == 0)){
-		return 0;
-	}
-	/* get file stats */
-	if(stat(entry->d_name,&buf)!=0) {
-		perror("couldn't get file stats");
-	}
-	/* check if file is a directory */
-	if(S_ISDIR(buf.st_mode)) {
-		return -1;
+		break;
 	}
 	return 0;
 }
@@ -117,19 +99,88 @@ menu(char* dir) {
 }
 
 static int 
-mtimecmp(const struct dirent **file1,const struct dirent **file2) {
-	struct stat file1_stat,file2_stat;
+read_entries(char* path) {
+	struct dirent **files;
+	int num, num_filehandlers;
 
-	/* get stats for both files */
-	stat((*file1)->d_name,&file1_stat);
-	stat((*file2)->d_name,&file2_stat);
+	if(path == NULL) {
+		path="/";
+	}
+		
+	fputs("<div class=\"textblock\">\r\n<h2>",stdout);
+	/* print path as page title */
+	fputs(path,stdout);
+	fputs("</h2>\r\n",stdout);
 
-	/* compare modification time */
-	return file1_stat.st_mtime-file2_stat.st_mtime;
+	/* get all regular files that end with .txt and sort them by */
+	/* modification time */
+	/* TODO: do this for all configured filehandlers */
+	
+	num_filehandlers = sizeof(filehandler)/sizeof(Filehandler);
+	while(num_filehandlers--) {
+		if((num = scandir(".",&files,filehandler[num_filehandlers].filter,&mtimecmp)) == -1) {
+			perror("scandir failed");
+			return -1;
+		}
+		while(num--){
+			/* read each file */
+			filehandler[num_filehandlers].print(files[num]->d_name);
+		}
+		free(files);
+	}
+	fputs("</div>\r\n",stdout);
+
+	return 0;
 }
 
-static int 
-istxt(struct dirent const *entry) {
+/* Filters */
+int 
+isdir(struct dirent const *entry) {
+	struct stat buf;
+
+	/* eleminiate the . and .. directories from the list */
+	if ((strcmp(entry->d_name, ".") == 0) ||
+		(strcmp(entry->d_name, "..") == 0)){
+		return 0;
+	}
+	/* get file stats */
+	if(stat(entry->d_name,&buf)!=0) {
+		perror("couldn't get file stats");
+	}
+	/* check if file is a directory */
+	if(S_ISDIR(buf.st_mode)) {
+		return -1;
+	}
+	return 0;
+}
+
+int
+isText(const struct dirent *entry) {
+	return check_fileending(entry,".txt");
+}
+
+int
+isMarkdown(const struct dirent *entry) {
+	return check_fileending(entry,".markdown");
+}
+
+int
+isPDF(const struct dirent *entry) {
+	return check_fileending(entry,".pdf");
+}
+
+int
+isPicture(const struct dirent *entry) {
+	if(	check_fileending(entry,".jpg") ||
+		check_fileending(entry,".png") ||
+		check_fileending(entry,".gif"))  {
+		return -1;
+	}
+	return 0;		
+}
+
+int 
+check_fileending(struct dirent const *entry, char *fileending) {
 	struct stat buf;
 	char *end;
 
@@ -141,7 +192,7 @@ istxt(struct dirent const *entry) {
 	/* check if file is a regular file and if it has and ending (.*) */
         if(S_ISREG(buf.st_mode) && (end=strrchr(entry->d_name,'.'))!=NULL){
 		/* check if the ending is .txt (configure via config.h?) */
-		if(!strcmp(end,".txt")) {
+		if(!strcmp(end,fileending)) {
                        	return -1;
 		}
 	}
@@ -149,11 +200,11 @@ istxt(struct dirent const *entry) {
         return 0;
 }
 
-static int 
-read_entry(const char *path) {
-	FILE *entry;
+/* Actions for Filetypes */
+int 
+showContent(const char *path, const char *content) {
 	struct stat entry_stat;
-	char *titlesuffix, *content;
+	char *titlesuffix;
 	
 	titlesuffix=strrchr(path,'.');
 	*titlesuffix='\0';
@@ -173,50 +224,52 @@ read_entry(const char *path) {
 	fputs("</div>\r\n",stdout);
 
 	/* print content */
-	content = calloc(entry_stat.st_size+1,1);
-	if((entry = fopen(path,"r"))!=NULL){
-		fputs("<p>",stdout);
-		fread(content,1,entry_stat.st_size,entry);
-		/* TODO: convert markdown text here */
-		fputs(content,stdout);	
-		fputs("</p>\r\n",stdout);
-		fputs("</div>\r\n",stdout);
-
-		fclose(entry);
-		free(content);
-		return -1;
-	}	
-	return 0;
+	fputs("<p>",stdout);
+	fputs(content,stdout);	
+	fputs("</p>\r\n",stdout);
+	fputs("</div>\r\n",stdout);
+	
+	return -1;
 }
 
-static int 
-read_entries(char* path) {
-	struct dirent **files;
-	int num;
+int
+showText(const char *path) {
+	FILE *entry;
+	struct stat entry_stat;
+	char *content;
+	
+	stat(path,&entry_stat);
+	content = calloc(entry_stat.st_size+1,1);
+	if((entry = fopen(path,"r"))!=NULL){
+		fread(content,1,entry_stat.st_size,entry);
+		fclose(entry);
+	}	
+	showContent(path,content);
+	free(content);
+	return -1;
+}
 
-	if(path == NULL) {
-		path="/";
-	}
-		
-	fputs("<div class=\"textblock\">\r\n<h2>",stdout);
-	/* print path as page title */
-	fputs(path,stdout);
-	fputs("</h2>\r\n",stdout);
+int
+showPicture(const char *path) {
+	char *formatstring = "<img src=\"%s\" />";
+	char *content = calloc(strlen(formatstring)+strlen(path)+1,1);
+	sprintf(content,formatstring,path);
 
-	/* get all regular files that end with .txt and sort them by */
-	/* modification time */
-	if((num = scandir(".",&files,istxt,mtimecmp)) == -1) {
-		perror("scandir failed");
-		return -1;
-	}
-	while(num--){
-		/* read each file */
-		read_entry(files[num]->d_name);
-	}
-	fputs("</div>\r\n",stdout);
+	showContent(path,content);
+	free(content);
+	return -1;
+}
 
-	free(files);
-	return 0;
+int 
+mtimecmp(const struct dirent **file1,const struct dirent **file2) {
+	struct stat file1_stat,file2_stat;
+
+	/* get stats for both files */
+	stat((*file1)->d_name,&file1_stat);
+	stat((*file2)->d_name,&file2_stat);
+
+	/* compare modification time */
+	return file1_stat.st_mtime-file2_stat.st_mtime;
 }
 
 static void 
